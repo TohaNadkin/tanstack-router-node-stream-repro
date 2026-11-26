@@ -3,8 +3,10 @@
 Minimal reproducer: `renderRouterToStream` from `@tanstack/react-router/ssr/server` switches from
 `renderToPipeableStream` to `renderToReadableStream` on Node.js after upgrading React to 19.2+.
 
-`repro.mjs` wraps both React streaming APIs, renders a single root route through
-`createRequestHandler` + `renderRouterToStream`, and prints which API was called.
+The project is a tiny SSR site: a plain Node.js HTTP server renders a TanStack Router route tree
+through `createRequestHandler` + `renderRouterToStream`. Both React streaming APIs are wrapped,
+and every page shows which one was used for the request (also sent as the `x-react-stream-api`
+response header and printed to the server log).
 
 ## Run
 
@@ -13,12 +15,13 @@ npm install
 npm start
 ```
 
-Output with React 19.3.1:
+Open http://localhost:3000. With React 19.3.1 the page shows:
 
 ```
-renderRouterToStream called: renderToReadableStream
-react-dom 19.3.1
-react-dom/server (Node build) exports: renderToReadableStream=function, renderToPipeableStream=function
+Hello from SSR
+react-dom: 19.3.1
+@tanstack/react-router: 1.170.46
+React streaming API used by renderRouterToStream: renderToReadableStream
 ```
 
 ## Compare with React 19.1
@@ -28,10 +31,17 @@ npm install --no-save react@19.1.1 react-dom@19.1.1
 npm start
 ```
 
-Output:
+The page now shows:
 
 ```
-renderRouterToStream called: renderToPipeableStream
-react-dom 19.1.1
-react-dom/server (Node build) exports: renderToReadableStream=undefined, renderToPipeableStream=function
+react-dom: 19.1.1
+React streaming API used by renderRouterToStream: renderToPipeableStream
 ```
+
+## Why
+
+Up to React 19.1, the Node build of `react-dom/server` exported only `renderToPipeableStream`.
+Since React 19.2 it also exports `renderToReadableStream`, and `renderRouterToStream` checks for
+`renderToReadableStream` first, so Node.js apps switch to Web Streams after the React upgrade.
+
+`npm run repro` runs a one-off script (`repro.mjs`) that prints the same result without starting a server.
